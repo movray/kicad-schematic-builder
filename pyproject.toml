@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kicad-schematic-builder"
+version = "0.1.0"
+description = "Draw readable KiCad schematics from a netlist (e.g. from SKiDL) with a few lines of Python"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+kicad-schematic-builder = "kicad_schematic_builder.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

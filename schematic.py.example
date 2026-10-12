@@ -1,0 +1,104 @@
+"""
+Starting point for a project schematic drawn with kicad-schematic-builder.
+
+Copy it into your project as schematic.py, set PROJECT and replace the example drawing in draw().
+Run with:  skidl-env && python schematic.py
+
+Workflow:
+  1. panel.py / board.py (SKiDL) writes the netlist  -> <PROJECT>.net
+  2. this script draws the schematic                  -> <PROJECT>.kicad_sch
+  3. verify() compares both and lists what is missing -> fix draw() until it prints OK
+
+Coordinates (all in mm):
+  * Origin is the top left corner of the sheet, y points DOWN (as in the schematic editor).
+    An A4 sheet is about 297 x 210 mm, the middle is around (150, 100).
+  * Everything snaps to the 1.27 mm grid. Use multiples of 2.54 for symbol positions,
+    then the pins land on the grid as well.
+  * Hover over a point in KiCad: the status bar shows X/Y in the same coordinates.
+"""
+
+import sys
+from pathlib import Path
+
+from kicad_schematic_builder import Schematic, verify
+
+HERE = Path(__file__).resolve().parent
+PROJECT = "my-board"  # TODO: name of the KiCad project (= netlist / schematic file name)
+NETLIST = HERE / f"{PROJECT}.net"
+SCHEMATIC = HERE / f"{PROJECT}.kicad_sch"
+
+
+def draw():
+    # Parts, values and footprints are read from the netlist. Libraries are found through the
+    # sym-lib-tables; for others: Schematic(NETLIST, extra_libs={"MyLib": "path/MyLib.kicad_sym"})
+    sch = Schematic(NETLIST, project=PROJECT)
+
+    # Use a reference point per block, then moving a whole block is one change
+    X, Y = 127.0, 101.6
+
+    # --- Place symbols -------------------------------------------------------------------------
+    # place(ref, x, y, rot=0, mirror=None, unit=1, ref_at=None, value_at=None,
+    #       show_ref=True, show_value=True)
+    #   rot       0 / 90 / 180 / 270 degrees (counter clockwise, like KiCad's R key)
+    #   mirror    "x" (flip top/bottom) or "y" (flip left/right)
+    #   unit      for multi-unit parts (e.g. Device:R_Pack04_Split, op-amps): 1, 2, 3, ...
+    #             place every unit you use; each one is its own symbol
+    #   ref_at / value_at   text position as offset from the symbol origin, e.g. (2.54, -1.27)
+    sch.place("U1", X, Y)                                    # TODO: your main part
+    sch.place("C1", X + 12.7, Y - 17.78, ref_at=(2.54, -0.635), value_at=(2.54, 1.905))
+    sch.place("J1", X - 38.1, Y)
+
+    # --- Wires ---------------------------------------------------------------------------------
+    # pin(ref, number) gives the position of a pin of a placed symbol. Pin numbers as strings,
+    # look them up in the symbol editor or the datasheet.
+    # wire(p0, p1, p2, ...) draws a polyline, only horizontal and vertical segments are allowed.
+    # T-connections and junction dots are created automatically.
+    vdd = sch.pin("U1", "1")                                 # TODO: real pin numbers
+    rail = Y - 22.86
+    sch.wire(vdd, (vdd[0], rail), (X + 12.7, rail))          # up from the pin, then right
+    sch.wire((X + 12.7, rail), sch.pin("C1", "1"))           # down to the capacitor
+
+    # Pin-to-pin in a straight line: works when both pins sit on the same y (or x)
+    sch.wire(sch.pin("J1", "2"), sch.pin("U1", "5"))
+
+    # With a bend: go to a free x position first, then down/up, then to the target
+    a, b = sch.pin("J1", "3"), sch.pin("U1", "6")
+    sch.wire(a, (X - 25.4, a[1]), (X - 25.4, b[1]), b)
+
+    # --- Power symbols -------------------------------------------------------------------------
+    # power(kind, x, y, rot=0) places a symbol from the "power" library with its pin at (x, y).
+    # kind: "VCC", "GND", "+5V", "+3V3", ...  A wire end or pin at (x, y) connects to it.
+    sch.power("VCC", vdd[0], rail)
+    sch.power("GND", *sch.pin("C1", "2"))
+    sch.power("GND", *sch.pin("U1", "2"))                    # TODO
+    # PWR_FLAG once per supply net that is only fed by a connector (keeps the ERC quiet)
+    sch.wire((X + 12.7, rail), (X + 22.86, rail))
+    sch.power("PWR_FLAG", X + 22.86, rail)
+
+    # --- Net labels ----------------------------------------------------------------------------
+    # Instead of long wires across the sheet: a short wire stub + label with the same name at both
+    # ends. angle 0 = text to the right of the point, 180 = text to the left.
+    p = sch.pin("U1", "10")                                  # TODO
+    sch.wire(p, (p[0] + 2.54, p[1]))
+    sch.label("SDA", p[0] + 2.54, p[1])
+    q = sch.pin("J1", "4")
+    sch.wire(q, (q[0] + 5.08, q[1]))
+    sch.label("SDA", q[0] + 5.08, q[1])
+
+    return sch
+
+
+if __name__ == "__main__":
+    draw().write(SCHEMATIC, title="My board")  # TODO: title shown in the title block
+    # Exports the netlist of the drawing with kicad-cli and compares it with NETLIST:
+    # "MISSING part" = not placed yet, "MISSING net" = connection not drawn,
+    # "EXTRA net" = something is connected that should not be (e.g. two wires touching).
+    sys.exit(0 if verify(SCHEMATIC, NETLIST) else 1)
+
+# Tips
+#   * Open the result in KiCad while working: File > Revert (or reopen) after each run.
+#   * Signal flow left to right (inputs left, outputs right) and supply up, GND down
+#     makes schematics easy to read.
+#   * Don't edit the .kicad_sch in KiCad: the next run overwrites it. Change draw() instead.
+#   * Afterwards: kicad-cli sch erc <PROJECT>.kicad_sch
+#   * Full example: ~/priv/office/make/7segment/7segment-panel-v2/schematic.py
