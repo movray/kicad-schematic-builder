@@ -65,3 +65,7 @@ Symbols that `extends` another symbol are flattened the same way KiCad embeds th
 ```bash
 python -m pytest tests
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
