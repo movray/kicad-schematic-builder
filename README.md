@@ -10,8 +10,10 @@ symbols on a grid yourself, like you would in the schematic editor. Afterwards i
 ## Install
 
 ```bash
-pip install -e ~/priv/office/make/kicad-schematic-builder      # into the venv you use for SKiDL
+pip install git+https://github.com/movray/kicad-schematic-builder.git   # into the venv you use for SKiDL
 ```
+
+For development: clone the repository and `pip install -e .` inside it.
 
 Needs KiCad 9 (`kicad-cli` and the symbol libraries). No other dependencies.
 
@@ -58,7 +60,9 @@ Symbols that `extends` another symbol are flattened the same way KiCad embeds th
 
 ## Example
 
-`~/priv/office/make/7segment/7segment-panel-v2/schematic.py`
+`schematic.py.example` is a commented starting point covering every function.
+The package was developed on a 4-digit 7-segment panel with a CH32V003 (16 parts, 34 nets):
+SKiDL for the circuit, kicad-schematic-builder for the schematic, pcbnew + Freerouting for the PCB.
 
 ## Tests
 

@@ -101,4 +101,3 @@ if __name__ == "__main__":
 #     makes schematics easy to read.
 #   * Don't edit the .kicad_sch in KiCad: the next run overwrites it. Change draw() instead.
 #   * Afterwards: kicad-cli sch erc <PROJECT>.kicad_sch
-#   * Full example: ~/priv/office/make/7segment/7segment-panel-v2/schematic.py
